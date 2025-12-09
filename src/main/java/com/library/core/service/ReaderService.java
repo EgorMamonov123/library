@@ -6,22 +6,26 @@ import com.library.core.repository.user.ReaderRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class ReaderService {
 
     private final ReaderRepository readerRepository;
-    private final ExecutorService executorService;
 
     public ReaderService(ReaderRepository readerRepository) {
         this.readerRepository = readerRepository;
-        this.executorService = Executors.newFixedThreadPool(5);
     }
 
     public Reader registerReader(Reader reader) {
         validateReader(reader);
+
+        // Проверка уникальности номера читательского билета
+        if (readerRepository.findByLibraryCardNumber(reader.getLibraryCardNumber()).isPresent()) {
+            throw new IllegalArgumentException("Номер читательского билета уже используется");
+        }
+
+        reader.setRegistrationDate(LocalDate.now());
+        reader.setActive(true);
+
         return readerRepository.save(reader);
     }
 
@@ -29,8 +33,8 @@ public class ReaderService {
         return readerRepository.findById(id);
     }
 
-    public Optional<Reader> getReaderByLibraryCard(String cardNumber) {
-        return readerRepository.findByLibraryCardNumber(cardNumber);
+    public Optional<Reader> getReaderByLibraryCard(String libraryCardNumber) {
+        return readerRepository.findByLibraryCardNumber(libraryCardNumber);
     }
 
     public List<Reader> findReadersByLastName(String lastName) {
@@ -42,12 +46,13 @@ public class ReaderService {
     }
 
     public Reader updateReaderInfo(Long readerId, String email, String phone) {
-        Optional<Reader> readerOpt = readerRepository.findById(readerId);
-        if (!readerOpt.isPresent()) {
-            throw new IllegalArgumentException("Reader not found with id: " + readerId);
+        Reader reader = readerRepository.findById(readerId)
+                .orElseThrow(() -> new IllegalArgumentException("Читатель не найден"));
+
+        if (email != null && !isValidEmail(email)) {
+            throw new IllegalArgumentException("Неверный формат email");
         }
 
-        Reader reader = readerOpt.get();
         reader.setEmail(email);
         reader.setPhone(phone);
 
@@ -56,75 +61,58 @@ public class ReaderService {
 
     public boolean deactivateReader(Long readerId) {
         Optional<Reader> readerOpt = readerRepository.findById(readerId);
-        if (!readerOpt.isPresent()) {
-            return false;
+        if (readerOpt.isPresent()) {
+            Reader reader = readerOpt.get();
+            reader.setActive(false);
+            readerRepository.save(reader);
+            return true;
         }
-
-        Reader reader = readerOpt.get();
-        reader.setActive(false);
-        readerRepository.save(reader);
-        return true;
+        return false;
     }
 
     public boolean activateReader(Long readerId) {
         Optional<Reader> readerOpt = readerRepository.findById(readerId);
-        if (!readerOpt.isPresent()) {
-            return false;
+        if (readerOpt.isPresent()) {
+            Reader reader = readerOpt.get();
+            reader.setActive(true);
+            readerRepository.save(reader);
+            return true;
         }
-
-        Reader reader = readerOpt.get();
-        reader.setActive(true);
-        readerRepository.save(reader);
-        return true;
+        return false;
     }
 
     public long getReaderCount() {
         return readerRepository.count();
     }
 
-    // Асинхронные методы
-    public CompletableFuture<Reader> registerReaderAsync(Reader reader) {
-        return CompletableFuture.supplyAsync(() -> registerReader(reader), executorService);
-    }
-
-    public CompletableFuture<List<Reader>> findReadersAsync(String searchTerm) {
-        return CompletableFuture.supplyAsync(() -> {
-            List<Reader> byLastName = readerRepository.findByLastName(searchTerm);
-            // Можно добавить поиск по имени или другим полям
-            return byLastName;
-        }, executorService);
-    }
-
-    // Валидация
     private void validateReader(Reader reader) {
         if (reader.getLibraryCardNumber() == null || reader.getLibraryCardNumber().trim().isEmpty()) {
-            throw new IllegalArgumentException("Library card number cannot be empty");
+            throw new IllegalArgumentException("Номер читательского билета обязателен");
         }
 
         if (reader.getFirstName() == null || reader.getFirstName().trim().isEmpty()) {
-            throw new IllegalArgumentException("First name cannot be empty");
+            throw new IllegalArgumentException("Имя обязательно");
         }
 
         if (reader.getLastName() == null || reader.getLastName().trim().isEmpty()) {
-            throw new IllegalArgumentException("Last name cannot be empty");
+            throw new IllegalArgumentException("Фамилия обязательна");
         }
 
         if (reader.getEmail() != null && !isValidEmail(reader.getEmail())) {
-            throw new IllegalArgumentException("Invalid email format");
+            throw new IllegalArgumentException("Неверный формат email");
         }
 
         if (reader.getRegistrationDate() != null &&
                 reader.getRegistrationDate().isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("Registration date cannot be in the future");
+            throw new IllegalArgumentException("Дата регистрации не может быть в будущем");
         }
     }
 
     private boolean isValidEmail(String email) {
-        // Простая проверка email
         return email != null && email.matches("^[A-Za-z0-9+_.-]+@(.+)$");
     }
 
     public void shutdown() {
-        executorService.shutdown();
+
     }
 }

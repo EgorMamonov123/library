@@ -34,9 +34,8 @@ public class InMemoryReaderRepository implements ReaderRepository {
         if (reader.getLibraryCardNumber() != null) {
             Long existingId = libraryCardIndex.get(reader.getLibraryCardNumber());
             if (existingId != null && !existingId.equals(reader.getId())) {
-                throw new IllegalArgumentException(
-                        "Reader with library card number " + reader.getLibraryCardNumber() + " already exists"
-                );
+                throw new IllegalArgumentException("Library card number already exists: " +
+                        reader.getLibraryCardNumber());
             }
             libraryCardIndex.put(reader.getLibraryCardNumber(), reader.getId());
         }
@@ -85,7 +84,8 @@ public class InMemoryReaderRepository implements ReaderRepository {
     @Override
     public List<Reader> findByLastName(String lastName) {
         return storage.values().stream()
-                .filter(reader -> reader.getLastName().equalsIgnoreCase(lastName))
+                .filter(reader -> reader.getLastName() != null &&
+                        reader.getLastName().equalsIgnoreCase(lastName))
                 .collect(Collectors.toList());
     }
 
@@ -94,5 +94,10 @@ public class InMemoryReaderRepository implements ReaderRepository {
         return storage.values().stream()
                 .filter(reader -> Boolean.TRUE.equals(reader.getActive()))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countReaders() {
+        return storage.size();
     }
 }

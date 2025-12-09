@@ -3,45 +3,86 @@ package com.library.core.domain.user;
 import com.library.core.domain.BaseEntity;
 import com.library.core.domain.loan.BorrowRecord;
 
+import javax.persistence.Column;
+import javax.persistence.DiscriminatorValue;
+import javax.persistence.Entity;
+import javax.persistence.Transient;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
-public class Reader extends BaseEntity {
+@Entity
+@DiscriminatorValue("READER")
+public class Reader extends User {
 
+    @Column(name = "library_card_number", unique = true)
     private String libraryCardNumber;
-    private String firstName;
-    private String lastName;
-    private String email;
-    private String phone;
-    private LocalDate registrationDate;
-    private Boolean active = true;
+
+    @Transient
     private Set<BorrowRecord> borrowRecords = new HashSet<>();
 
-    public Reader() {}
+    public Reader() {
+        super();
+    }
 
+    // Конструктор для тестов
     public Reader(String libraryCardNumber, String firstName, String lastName) {
+        this();
         this.libraryCardNumber = libraryCardNumber;
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.registrationDate = LocalDate.now();
+        this.setFirstName(firstName);
+        this.setLastName(lastName);
+        this.setUsername(libraryCardNumber); // Используем номер билета как username
+        this.setPassword("default123"); // Дефолтный пароль
+        this.setRole(UserRole.READER);
+        this.setRegistrationDate(LocalDate.now());
+        this.setActive(true);
+    }
+
+    // Конструктор для AuthService
+    public Reader(String username, String password, String email,
+                  String firstName, String lastName, String libraryCardNumber) {
+        super(username, password, email, firstName, lastName, UserRole.READER);
+        this.libraryCardNumber = libraryCardNumber;
+    }
+
+    @Override
+    public boolean canPerformAction(String action) {
+        switch (action) {
+            case "borrow_books":
+            case "reserve_books":
+            case "view_loans":
+            case "renew_loans":
+                return true;
+            case "manage_books":
+            case "manage_readers":
+            case "process_loans":
+            case "view_statistics":
+            case "manage_users":
+            case "system_settings":
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    @Override
+    public String getDisplayName() {
+        return getFirstName() + " " + getLastName() + " (Читатель)";
     }
 
     // Business methods
     public boolean canBorrowBooks() {
-        if (!active) {
+        if (!getActive()) {
             return false;
         }
 
-        long activeBorrows = borrowRecords.stream()
-                .filter(record -> record.getReturnDate() == null)
-                .count();
-
-        return activeBorrows < 5; // Максимум 5 книг одновременно
+        // Здесь должна быть логика проверки количества активных займов
+        // Временная заглушка
+        return true;
     }
 
     public String getFullName() {
-        return firstName + " " + lastName;
+        return getFirstName() + " " + getLastName();
     }
 
     // Getters and Setters
@@ -51,54 +92,6 @@ public class Reader extends BaseEntity {
 
     public void setLibraryCardNumber(String libraryCardNumber) {
         this.libraryCardNumber = libraryCardNumber;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public LocalDate getRegistrationDate() {
-        return registrationDate;
-    }
-
-    public void setRegistrationDate(LocalDate registrationDate) {
-        this.registrationDate = registrationDate;
-    }
-
-    public Boolean getActive() {
-        return active;
-    }
-
-    public void setActive(Boolean active) {
-        this.active = active;
     }
 
     public Set<BorrowRecord> getBorrowRecords() {

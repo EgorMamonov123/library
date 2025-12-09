@@ -10,4 +10,5 @@ public interface ReaderRepository extends Repository<Reader> {
     Optional<Reader> findByLibraryCardNumber(String libraryCardNumber);
     List<Reader> findByLastName(String lastName);
     List<Reader> findActiveReaders();
+    long countReaders();
 }
