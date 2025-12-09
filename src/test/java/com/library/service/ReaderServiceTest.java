@@ -113,10 +113,13 @@ class ReaderServiceTest {
         // Given
         Reader reader1 = new Reader("111", "John", "Doe");
         Reader reader2 = new Reader("222", "Jane", "Doe");
-        reader2.setActive(false);
 
-        readerService.registerReader(reader1);
-        readerService.registerReader(reader2);
+        // Регистрируем обоих читателей через сервис (они будут активными)
+        Reader saved1 = readerService.registerReader(reader1);
+        Reader saved2 = readerService.registerReader(reader2);
+
+        // Деактивируем второго читателя через сервис
+        readerService.deactivateReader(saved2.getId());
 
         // When
         List<Reader> activeReaders = readerService.getActiveReaders();
